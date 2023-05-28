@@ -11,12 +11,14 @@
 #define CLASS_NAME "uio_logical_mem"
 #define DEVICE_NAME "uio_mem_dev"
 #define LOCAL_MAX_DEVICES 10
+#define MAX_UIO_NAME 64
 
 static struct
 {
 	struct uio_info *info[LOCAL_MAX_DEVICES];
 	struct class *uio_mem_class;
 	struct device *dev[LOCAL_MAX_DEVICES];
+	char uioNames[LOCAL_MAX_DEVICES][MAX_UIO_NAME];
 	uint32_t numDevices;
 	dev_t major;
 	dev_t minor_start;
@@ -28,7 +30,6 @@ int init_module(void)
 	int rc;
 	uint32_t devIdx;
 	dev_t devt;
-	char buf[64];
 
 	memset(&moduleData, 0, sizeof(moduleData));
 
@@ -66,9 +67,9 @@ int init_module(void)
 
 		memset(moduleData.info[devIdx], 0, sizeof(struct uio_info));
 
-		snprintf(buf, sizeof(buf), DEVICE_NAME "_%u", devIdx);
+		snprintf(moduleData.uioNames[devIdx], MAX_UIO_NAME, DEVICE_NAME "_%u", devIdx);
 
-		moduleData.info[devIdx]->name = buf;
+		moduleData.info[devIdx]->name = moduleData.uioNames[devIdx];
 		moduleData.info[devIdx]->version = "0.1.0";
 		moduleData.info[devIdx]->irq = UIO_IRQ_NONE;
 

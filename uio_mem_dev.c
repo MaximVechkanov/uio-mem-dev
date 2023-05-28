@@ -10,7 +10,7 @@
 
 #define CLASS_NAME "uio_logical_mem"
 #define DEVICE_NAME "uio_mem_dev"
-#define LOCAL_MAX_DEVICES 10
+#define LOCAL_MAX_DEVICES 6
 #define MAX_UIO_NAME 64
 
 static struct
@@ -30,6 +30,7 @@ int init_module(void)
 	int rc;
 	uint32_t devIdx;
 	dev_t devt;
+	uint32_t memIdx;
 
 	memset(&moduleData, 0, sizeof(moduleData));
 
@@ -50,7 +51,7 @@ int init_module(void)
 	moduleData.major = MAJOR(devt);
 	moduleData.minor_start = MINOR(devt);
 
-	for (devIdx = 0; devIdx < 5; ++devIdx)
+	for (devIdx = 0; devIdx < LOCAL_MAX_DEVICES; ++devIdx)
 	{
 		moduleData.dev[devIdx] = device_create(moduleData.uio_mem_class, NULL, MKDEV(moduleData.major, moduleData.minor_start + devIdx), NULL, DEVICE_NAME "%u", devIdx);
 		if (!moduleData.dev[devIdx])
@@ -73,10 +74,13 @@ int init_module(void)
 		moduleData.info[devIdx]->version = "0.1.0";
 		moduleData.info[devIdx]->irq = UIO_IRQ_NONE;
 
-		moduleData.info[devIdx]->mem[0].name = "main";
-		moduleData.info[devIdx]->mem[0].memtype = UIO_MEM_LOGICAL;
-		moduleData.info[devIdx]->mem[0].addr = (phys_addr_t)(void *)get_zeroed_page(GFP_KERNEL | __GFP_COMP);
-		moduleData.info[devIdx]->mem[0].size = PAGE_SIZE;
+		for (memIdx = 0; memIdx < devIdx; ++memIdx)
+		{
+			moduleData.info[devIdx]->mem[memIdx].name = "test";
+			moduleData.info[devIdx]->mem[memIdx].memtype = UIO_MEM_LOGICAL;
+			moduleData.info[devIdx]->mem[memIdx].addr = (phys_addr_t)(void *)get_zeroed_page(GFP_KERNEL | __GFP_COMP);
+			moduleData.info[devIdx]->mem[memIdx].size = PAGE_SIZE;
+		}
 
 		rc = uio_register_device(moduleData.dev[devIdx], moduleData.info[devIdx]);
 		if (rc != 0)
@@ -105,11 +109,16 @@ class_created:
 
 void cleanup_module(void)
 {
-	uint32_t devIdx;
+	uint32_t devIdx, memIdx;
+
 	for (devIdx = 0; devIdx < moduleData.numDevices; ++devIdx)
 	{
 		uio_unregister_device(moduleData.info[devIdx]);
-		free_page(moduleData.info[devIdx]->mem[0].addr);
+		for (memIdx = 0; memIdx < devIdx; ++memIdx)
+		{
+			free_page(moduleData.info[devIdx]->mem[memIdx].addr);
+		}
+
 		kfree(moduleData.info[devIdx]);
 		device_destroy(moduleData.uio_mem_class, moduleData.dev[devIdx]->devt);
 	}
